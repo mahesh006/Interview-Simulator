@@ -43,13 +43,16 @@ navigator.mediaDevices
 
         const disconnectPopup = document.getElementById("disconnect-popup");
         disconnectPopup.style.display = "block";
+        setTimeout(() => {
+          disconnectPopup.style.display = "none";
+        }, 2000); // Hide the popup after 3 seconds (3000 milliseconds)
       }
     });
 
     socket.on("waiting", () => {
       // Display the waiting popup
       const waitingPopup = document.getElementById("popup-background");
-      waitingPopup.style.display = "none";
+      waitingPopup.style.display = "block";
     });
 
     socket.on("ready", () => {
@@ -251,19 +254,27 @@ function startVideo(video, canvas, context) {
 function resizeCanvas(video) {
   const { canvas, context } = canvasMap.get(video);
 
-  // Set the canvas dimensions to match the video content
-  const videoWidth = video.videoWidth;
-  const videoHeight = video.videoHeight;
-  canvas.width = videoWidth;
-  canvas.height = videoHeight;
+  // Set the canvas dimensions to 500px by 500px
+  const canvasWidth = 450;
+  const canvasHeight = 300;
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+
+  // Calculate the scale factor to fit the video within the canvas while maintaining aspect ratio
+  const videoWidth = 450;
+  const videoHeight = 300;
+  const scale = Math.min(canvasWidth / videoWidth, canvasHeight / videoHeight);
+
+  // Calculate the centered position of the video within the canvas
+  const offsetX = (canvasWidth - videoWidth * scale) / 2;
+  const offsetY = (canvasHeight - videoHeight * scale) / 2;
 
   // Position the canvas over the video element
   canvas.style.position = "absolute";
-  canvas.style.top = `${video.offsetTop}px`;
-  canvas.style.left = `${video.offsetLeft}px`;
+  canvas.style.top = `${video.offsetTop + offsetY}px`;
+  canvas.style.left = `${video.offsetLeft + offsetX}px`;
 
   // Adjust the scale of the canvas context to match the video dimensions
-  const scale = video.offsetWidth / video.videoWidth;
   context.scale(scale, scale);
 }
 
@@ -289,6 +300,18 @@ socket.on("user-skipped", (userId) => {
   }
 });
 
+let isMicEnabled = true;
+
+function toggleMic() {
+  isMicEnabled = !isMicEnabled;
+  myVideo.srcObject.getAudioTracks()[0].enabled = isMicEnabled;
+  socket.emit("mic-state", roomId, isMicEnabled); // Emit mic-state event with the updated mic state
+  const micIcon = document.getElementById("mic-icon");
+  micIcon.classList.toggle("fa-microphone-slash");
+}
+
+// ...
+
 function enableMic() {
   myVideo.srcObject.getAudioTracks()[0].enabled = true;
   socket.emit("mic-state", roomId, true); // Emit mic-state event with mic enabled
@@ -298,6 +321,19 @@ function disableMic() {
   myVideo.srcObject.getAudioTracks()[0].enabled = false;
   socket.emit("mic-state", roomId, false); // Emit mic-state event with mic disabled
 }
+
+// ...
+
+socket.on("mic-state-changed", (userId, micEnabled) => {
+  const videoElement = document.querySelector(
+    `video[data-user-id="${userId}"]`
+  );
+  if (videoElement) {
+    videoElement.srcObject.getAudioTracks()[0].enabled = micEnabled;
+  }
+});
+
+// ...
 
 function sendMessage() {
   const messageInput = document.getElementById("message-input");
@@ -310,39 +346,51 @@ function sendMessage() {
 
 socket.on("receive-message", (userId, message) => {
   const messageContainer = document.createElement("div");
-  messageContainer.innerText = `${userId}: ${message}`;
+
+  // Split the message into sentences using "?" as the delimiter
+  const sentences = message.split("?");
+
+  // Create a separate <p> element for each sentence
+  sentences.forEach((sentence) => {
+    const paragraph = document.createElement("p");
+    paragraph.innerText = sentence.trim(); // Remove leading/trailing whitespace
+
+    // Append the paragraph to the message container
+    messageContainer.appendChild(paragraph);
+  });
+
   document.getElementById("message-container").appendChild(messageContainer);
 });
 
 // ...
 
+let isCameraEnabled = true;
+
+function toggleCamera() {
+  isCameraEnabled = !isCameraEnabled;
+  myVideo.srcObject.getVideoTracks()[0].enabled = isCameraEnabled;
+  socket.emit("camera-state", roomId, isCameraEnabled); // Emit camera-state event with the updated camera state
+  const cameraIcon = document.getElementById("camera-icon");
+  cameraIcon.classList.toggle("fa-pause");
+}
+
+// ...
+
 function enableVideo() {
   myVideo.srcObject.getVideoTracks()[0].enabled = true;
-  socket.emit("video-state", roomId, true); // Emit video-state event with video enabled
+  socket.emit("camera-state", roomId, true); // Emit camera-state event with camera enabled
 }
 
 function disableVideo() {
   myVideo.srcObject.getVideoTracks()[0].enabled = false;
-  socket.emit("video-state", roomId, false); // Emit video-state event with video disabled
+  socket.emit("camera-state", roomId, false); // Emit camera-state event with camera disabled
 }
 
-socket.on("video-state-changed", (userId, videoEnabled) => {
+socket.on("camera-state-changed", (userId, cameraEnabled) => {
   const videoElement = document.querySelector(
     `video[data-user-id="${userId}"]`
   );
   if (videoElement) {
-    videoElement.srcObject.getVideoTracks()[0].enabled = videoEnabled;
+    videoElement.srcObject.getVideoTracks()[0].enabled = cameraEnabled;
   }
-});
-
-// Add event listeners for the filter buttons
-const addFilterButton = document.getElementById("add-filter-button");
-const removeFilterButton = document.getElementById("remove-filter-button");
-
-addFilterButton.addEventListener("click", () => {
-  socket.emit("add-filter");
-});
-
-removeFilterButton.addEventListener("click", () => {
-  socket.emit("remove-filter");
 });
