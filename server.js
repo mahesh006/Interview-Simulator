@@ -2,17 +2,16 @@ const express = require("express");
 const app = express();
 const server = require("http").Server(app);
 const io = require("socket.io")(server);
-const { ExpressPeerServer } = require('peer');
-const peerServer = ExpressPeerServer(server, {
-  debug: true
+
+
+
+pp.get("/index", (req, res) => {
+  res.render("index");
 });
 
-
-
-app.use("/peerjs", peerServer);
-
-//peerServer.listen(3001);
-
+app.get("/home", (req, res) => {
+  res.render("home");
+});
 
 const rooms = [
   "75cf7c66",
@@ -32,10 +31,10 @@ const rooms = [
 
 
 // Object to keep track of the number of users in each room
-const usersInRooms = {};
+const usersInRoom = {};
 
 // Object to keep track of skipped users in each room
-const skippedUsers = {};
+const skippedUser = {};
 
 // Initialize the number of users in each room to 0
 rooms.forEach((room) => {
@@ -49,7 +48,7 @@ app.use(express.static("public"));
 app.get("/", (req, res) => {
   let randomRoom = null;
   // Check if there is any room with one user, if yes then join that room
-  const roomWithOneUser = Object.keys(usersInRooms).find(
+  const roomWithOneUse= Object.keys(usersInRooms).find(
     (room) => usersInRooms[room] === 1 && skippedUsers[room].length === 0
   );
   if (roomWithOneUser) {
